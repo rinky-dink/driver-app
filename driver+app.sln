@@ -15,6 +15,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "injdrv", "src\injdrv\injdrv
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RegManager", "src\RegManager\RegManager.vcxproj", "{C768D4C0-D36E-4987-AEA1-74605D51AB25}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TEST", "src\TEST\TEST\TEST.vcxproj", "{71791F47-DCD7-410E-BCF9-639775693AC7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -85,6 +87,18 @@ Global
 		{C768D4C0-D36E-4987-AEA1-74605D51AB25}.Release|x64.Build.0 = Release|x64
 		{C768D4C0-D36E-4987-AEA1-74605D51AB25}.Release|x86.ActiveCfg = Release|Win32
 		{C768D4C0-D36E-4987-AEA1-74605D51AB25}.Release|x86.Build.0 = Release|Win32
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Debug|ARM64.ActiveCfg = Debug|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Debug|ARM64.Build.0 = Debug|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Debug|x64.ActiveCfg = Debug|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Debug|x64.Build.0 = Debug|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Debug|x86.ActiveCfg = Debug|Win32
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Debug|x86.Build.0 = Debug|Win32
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|ARM64.ActiveCfg = Release|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|ARM64.Build.0 = Release|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x64.ActiveCfg = Release|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x64.Build.0 = Release|x64
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x86.ActiveCfg = Release|Win32
+		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

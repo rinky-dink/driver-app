@@ -409,9 +409,95 @@ std::vector<ReleaseInfo> GetReleases(const std::vector<std::string>& repositorie
     return releases;
 }
 
+bool IsElevated() {
+    BOOL isElevated = FALSE;
+    HANDLE hToken = nullptr;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        TOKEN_ELEVATION elevation;
+        DWORD dwSize;
+        if (GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &dwSize)) {
+            isElevated = elevation.TokenIsElevated;
+        }
+        CloseHandle(hToken);
+    }
+    return isElevated == TRUE;
+}
 
+bool gettestsigning() {
+    const char* cmd = "cmd.exe /C bcdedit /enum {current}";
 
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = NULL;
+    sa.bInheritHandle = TRUE;
 
+    HANDLE hStdOutRead, hStdOutWrite;
+    if (!CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0)) {
+        std::cerr << "Ошибка при создании pipe." << std::endl;
+        return 0;
+    }
+
+    SetHandleInformation(hStdOutRead, HANDLE_FLAG_INHERIT, 0);
+
+    STARTUPINFOA si;
+    ZeroMemory(&si, sizeof(STARTUPINFOA));
+    si.cb = sizeof(STARTUPINFOA);
+    si.hStdOutput = hStdOutWrite;
+    si.hStdError = hStdOutWrite;
+    si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+
+    if (!CreateProcessA(NULL, (LPSTR)cmd, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        std::cerr << "Ошибка при создании процесса." << std::endl;
+        CloseHandle(hStdOutRead);
+        CloseHandle(hStdOutWrite);
+        return 0;
+    }
+
+    CloseHandle(hStdOutWrite);
+
+    char buffer[128];
+    DWORD bytesRead;
+    std::string result = "";
+    while (ReadFile(hStdOutRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
+        buffer[bytesRead] = '\0';
+        result += buffer;
+    }
+
+    CloseHandle(hStdOutRead);
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return (result.find("testsigning") != std::string::npos && result.find("Yes") != std::string::npos);
+}
+
+bool customSort(const DllPath& a, const DllPath& b) {
+    auto extractNumber = [](const std::string& s) {
+        std::smatch match;
+        std::regex_search(s, match, std::regex(R"(d3d([\d]+))"));
+        if (!match.empty()) {
+            return std::stoi(match[1]);
+        }
+        return -1;
+        };
+
+    int number_a = extractNumber(a.dll);
+    int number_b = extractNumber(b.dll);
+
+    if (number_a != number_b) {
+        return number_a < number_b;
+    }
+
+    else {
+        return a.dll < b.dll;
+    }
+}
 //void LoadFontFromResource(ImFont*& font)
 //{
 //    HRSRC hResource = FindResource(nullptr, MAKEINTRESOURCE(101), RT_FONT);

@@ -1,5 +1,10 @@
 ﻿#include "Header.h"
 
+
+// Data
+
+
+// Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void ResetDevice();
@@ -17,11 +22,63 @@ std::string gamepath;
 FILE* logFile;
 
 bool ChangeDllPath{ false };
-
+bool game = false;
 std::vector<DllPath> sDll{};
+
+bool customSort(const DllPath& a, const DllPath& b) {
+	auto extractNumber = [](const std::string& s) {
+		std::smatch match;
+		std::regex_search(s, match, std::regex(R"(d3d([\d]+))"));
+		if (!match.empty()) {
+			return std::stoi(match[1]);
+		}
+		return -1;
+		};
+
+	// Получаем числовую часть из строк
+	int number_a = extractNumber(a.dll);
+	int number_b = extractNumber(b.dll);
+
+	// Если числовая часть у строк разная, то сортируем по ней
+	if (number_a != number_b) {
+		return number_a < number_b;
+	}
+	// Иначе сортируем по алфавиту
+	else {
+		return a.dll < b.dll;
+	}
+}
 
 std::vector<bool> checkboxes;
 std::vector <std::thread> threads;
+
+
+//void ConvertToBoolArray(const std::string& hexString, bool data[], size_t size) {
+//	// Преобразуем шестнадцатеричную строку в std::bitset<64>
+//	std::bitset<64> mask(std::stoull(hexString, nullptr, 16));
+//
+//	// Извлекаем булевские значения из std::bitset<64> и записываем в массив data
+//	for (size_t i = 0; i < size; ++i) {
+//		data[i] = mask.test(i);
+//	}
+//}
+//
+//std::string CalculateAffinity(bool data[], size_t size) {
+//	// Создаем маску сходства, изначально устанавливая все биты в 0
+//	std::bitset<64> mask(0);
+//
+//	// Устанавливаем соответствующий бит в маске для каждого включенного элемента
+//	for (size_t i = 0; i < size; ++i) {
+//		if (data[i]) {
+//			mask.set(i);
+//		}
+//	}
+//
+//	// Преобразуем маску сходства в шестнадцатеричный формат
+//	std::stringstream stream;
+//	stream << std::hex << std::uppercase << mask.to_ullong();
+//	return stream.str();
+//}
 
 std::string folderPath{};
 
@@ -30,11 +87,73 @@ struct ButtonData {
 	bool isBeingDragged;
 };
 
+//class Console {
+//public:
+//	Console() : isOpen_(true) {}
+//
+//	void Draw(const char* title) {
+//		if (!isOpen_) return;
+//		ImGui::SetNextWindowPos(ImVec2(300,300), ImGuiCond_Once);
+//		ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
+//		ImGui::Begin(title, &isOpen_, ImGuiWindowFlags_MenuBar);
+//		if (ImGui::BeginMenuBar()) {
+//			if (ImGui::MenuItem("Clear")) ClearLog();
+//			ImGui::EndMenuBar();
+//		}
+//
+//		ImGui::Separator();
+//		ImGui::BeginChild("ScrollingRegion", ImVec2(0, 180), false, ImGuiWindowFlags_HorizontalScrollbar);
+//
+//		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
+//		for (const auto& item : items_)
+//			ImGui::TextUnformatted(item.c_str());
+//		if (scrollToBottom_)
+//			ImGui::SetScrollHereY(1.0f);
+//		scrollToBottom_ = false;
+//		ImGui::PopStyleVar();
+//
+//		ImGui::EndChild();
+//		ImGui::End();
+//	}
+//
+//	void AddLog(const char* fmt, ...) IM_FMTARGS(2) {
+//		va_list args;
+//		va_start(args, fmt);
+//		char buffer[1024];
+//		vsnprintf(buffer, IM_ARRAYSIZE(buffer), fmt, args);
+//		buffer[IM_ARRAYSIZE(buffer) - 1] = 0;
+//		va_end(args);
+//		items_.push_back(buffer);
+//		scrollToBottom_ = true;
+//	}
+//
+//	void ClearLog() {
+//		items_.clear();
+//	}
+//
+//private:
+//	std::vector<std::string> items_;
+//	bool scrollToBottom_;
+//	bool isOpen_;
+//};
+//
+//Console console;
 
+//void AddLogToConsole(const char* fmt, ...) {
+//	va_list args;
+//	va_start(args, fmt);
+//	char buffer[1024];
+//	vsnprintf(buffer, IM_ARRAYSIZE(buffer), fmt, args);
+//	buffer[IM_ARRAYSIZE(buffer) - 1] = 0;
+//	va_end(args);
+//	console.AddLog("%s", buffer);
+//}
+
+
+std::string programm_folder;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-#pragma region Command Line Processing Arguments
 	LPWSTR lpWideCmdLine = GetCommandLineW();
 	int argc = 0;
 	LPWSTR* wideArgv = CommandLineToArgvW(lpWideCmdLine, &argc);
@@ -50,16 +169,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		WideCharToMultiByte(CP_ACP, 0, wideArgv[i], -1, &narrowStrings[i][0], len, NULL, NULL);
 		argv[i] = &narrowStrings[i][0];
 	}
-#pragma endregion
 
 	bool updategamewindowpos = true;
 	bool main = false;
-	bool game = false;
 	bool done = false;
-	std::string programm_folder;
 
 	std::mutex mtx;
 	HANDLE semaphore = CreateSemaphore(NULL, 0, 1, "sImguiAPP");
+
 
 	constexpr char const name__[] = "ipc-chat";
 		
@@ -73,6 +190,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	else if (GetLastError() == ERROR_ALREADY_EXISTS) {
 		if (argc >= 2)
 		{
+
 			if (!server)
 			{
 				ipc::channel sender__{ name__, ipc::sender };
@@ -116,7 +234,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		return 0;
 	}
 
-	if (!gettestsigning())
+	bool testsigning = gettestsigning();
+
+	if (!testsigning)
 		return 0;
 
 	for (int i = 1; i < argc; i++) {
@@ -648,7 +768,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			ImGui::End();
 
 		}
-
+		
+		//{
+		//	ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f)); // Устанавливаем прозрачный цвет фона
+		//	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 0.0f)); // Устанавливаем прозрачный цвет обводки
+		//	ImVec2 m = ImGui::GetIO().MousePos;
+		//	ImGui::SetNextWindowPos(ImVec2(m.x - 50, m.y - 30));
+		//	ImGui::Begin("1", nullptr,  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMouseInputs);
+		//	ImGui::Button("sDll[i].dll.c_str()", ImVec2(100, 60));
+		//	ImGui::End();
+		//	ImGui::PopStyleColor(2);
+		//}
 
 #pragma region ImGui DirectX Rendering
 	#pragma region ImGui Render Setup
@@ -699,7 +829,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	::DestroyWindow(hwnd);
 	UnregisterClass(wc.lpszClassName, wc.hInstance);
 
-	r.detach();
+	//r.detach();
 
 	CloseHandle(semaphore);
 	std::cout << "sdada" << std::endl;

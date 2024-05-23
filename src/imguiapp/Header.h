@@ -204,6 +204,11 @@ int progressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_o
 
 std::vector<ReleaseInfo> GetReleases(const std::vector<std::string>& repositories, const std::string& token);
 
+bool IsElevated();
+
+bool gettestsigning();
+bool customSort(const DllPath& a, const DllPath& b);
+
 /*<---                                        --->*/
 
 

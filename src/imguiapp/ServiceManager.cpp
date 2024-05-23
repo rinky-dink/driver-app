@@ -1,4 +1,3 @@
-#pragma once
 #include "ServiceManager.h"
 
 
@@ -40,7 +39,7 @@ bool ServiceManager::Uninstall() {
 bool ServiceManager::SetupDriverName() {
 
     HANDLE fileHandle;
-    std::cout << "DriverLocation.c_str()" << DriverLocation.c_str() << std::endl;
+    DbgPrint("DriverLocation.c_str() %s\n", DriverLocation.c_str());
     if ((fileHandle = CreateFile(DriverLocation.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
         DbgPrint("%s.sys is not loaded.\n", DriverName.c_str());
         return false;
