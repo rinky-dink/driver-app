@@ -5,6 +5,7 @@ VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imguiapp", "src\imguiapp\imguiapp.vcxproj", "{54D56DC9-CDA5-4337-A3C8-7ED8CF5163D7}"
 	ProjectSection(ProjectDependencies) = postProject
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404} = {3CB81E7F-B40F-4FB5-B87F-B87ECED81404}
 		{46A74761-6CFA-41AF-A536-47F08E2C7B48} = {46A74761-6CFA-41AF-A536-47F08E2C7B48}
 		{C768D4C0-D36E-4987-AEA1-74605D51AB25} = {C768D4C0-D36E-4987-AEA1-74605D51AB25}
 	EndProjectSection
@@ -16,6 +17,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RegManager", "src\RegManager\RegManager.vcxproj", "{C768D4C0-D36E-4987-AEA1-74605D51AB25}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TEST", "src\TEST\TEST\TEST.vcxproj", "{71791F47-DCD7-410E-BCF9-639775693AC7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaskSchedulerLib", "src\TaskSchedulerLib\TaskSchedulerLib.vcxproj", "{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -99,6 +102,18 @@ Global
 		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x64.Build.0 = Release|x64
 		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x86.ActiveCfg = Release|Win32
 		{71791F47-DCD7-410E-BCF9-639775693AC7}.Release|x86.Build.0 = Release|Win32
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Debug|ARM64.ActiveCfg = Debug|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Debug|ARM64.Build.0 = Debug|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Debug|x64.ActiveCfg = Debug|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Debug|x64.Build.0 = Debug|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Debug|x86.ActiveCfg = Debug|Win32
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Debug|x86.Build.0 = Debug|Win32
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Release|ARM64.ActiveCfg = Release|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Release|ARM64.Build.0 = Release|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Release|x64.ActiveCfg = Release|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Release|x64.Build.0 = Release|x64
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Release|x86.ActiveCfg = Release|Win32
+		{3CB81E7F-B40F-4FB5-B87F-B87ECED81404}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

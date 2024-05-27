@@ -1,103 +1,55 @@
-﻿//#include <iostream>
-//#include <windows.h>
-//#include <string>
-//#include <regex>
-//std::string parseVersion(const std::string& input) {
-//    std::regex versionRegex("(.+)-(.+)");
-//    std::smatch match;
-//
-//    if (std::regex_search(input, match, versionRegex)) {
-//        std::string name = match[1].str();
-//        std::string version = match[2].str();
-//        return name + " " + version;
-//    }
-//    else {
-//        return "error";
-//    }
-//}
-//int main()
-//{
-//    std::string input = "vkd3d-1.8.1";
-//    std::string result = parseVersion(input);
-//    std::cout << "Parsed version: " << result << std::endl;
-//    return 0;
-//    //// Command to be executed
-//    //const char* cmd = "cmd.exe /C bcdedit /enum {current}";
-//
-//    //// Set up the security attributes struct
-//    //SECURITY_ATTRIBUTES sa;
-//    //sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-//    //sa.lpSecurityDescriptor = NULL;
-//    //sa.bInheritHandle = TRUE;
-//
-//    //// Create the pipe for the process's STDOUT
-//    //HANDLE hStdOutRead, hStdOutWrite;
-//    //if (!CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0)) {
-//    //    std::cerr << "Ошибка при создании pipe." << std::endl;
-//    //    return 1;
-//    //}
-//
-//    //// Ensure the read handle to the pipe for STDOUT is not inherited
-//    //SetHandleInformation(hStdOutRead, HANDLE_FLAG_INHERIT, 0);
-//
-//    //// Set up the process startup info struct
-//    //STARTUPINFOA si;
-//    //ZeroMemory(&si, sizeof(STARTUPINFOA));
-//    //si.cb = sizeof(STARTUPINFOA);
-//    //si.hStdOutput = hStdOutWrite;
-//    //si.hStdError = hStdOutWrite;
-//    //si.dwFlags |= STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-//    //si.wShowWindow = SW_HIDE;
-//
-//    //// Set up the process info struct
-//    //PROCESS_INFORMATION pi;
-//    //ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
-//
-//    //// Create the process
-//    //if (!CreateProcessA(NULL, (LPSTR)cmd, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-//    //    std::cerr << "Ошибка при создании процесса." << std::endl;
-//    //    CloseHandle(hStdOutRead);
-//    //    CloseHandle(hStdOutWrite);
-//    //    return 1;
-//    //}
-//
-//    //// Close the write end of the pipe before reading from the read end of the pipe
-//    //CloseHandle(hStdOutWrite);
-//
-//    //// Read output from the child process
-//    //char buffer[128];
-//    //DWORD bytesRead;
-//    //std::string result = "";
-//    //while (ReadFile(hStdOutRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
-//    //    buffer[bytesRead] = '\0';
-//    //    result += buffer;
-//    //}
-//
-//    //// Close the read end of the pipe
-//    //CloseHandle(hStdOutRead);
-//
-//    //// Wait until child process exits
-//    //WaitForSingleObject(pi.hProcess, INFINITE);
-//
-//    //// Close process and thread handles
-//    //CloseHandle(pi.hProcess);
-//    //CloseHandle(pi.hThread);
-//
-//    //// Check if "testsigning" is enabled
-//    //bool testsigning_enabled = (result.find("testsigning") != std::string::npos && result.find("Yes") != std::string::npos);
-//
-//    //// Return the result
-//    //return testsigning_enabled;
-//}
-#include <windows.h>
-#include <comdef.h>
-#include <taskschd.h>
-#include <iostream>
+﻿#include "pch.h"
+#include "TaskSchedulerLib.h"
 
-#pragma comment(lib, "taskschd.lib")
-#pragma comment(lib, "comsupp.lib")
+bool DoesScheduledTaskExist(const std::wstring& taskName) {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(hr)) {
+        std::wcerr << L"Failed to initialize COM library. Error code: " << hr << std::endl;
+        return false;
+    }
 
-bool CreateScheduledTask(const std::wstring& taskName, const std::wstring& executablePath) {
+    ITaskService* pService = NULL;
+    hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
+    if (FAILED(hr)) {
+        std::wcerr << L"Failed to create an instance of ITaskService. Error code: " << hr << std::endl;
+        CoUninitialize();
+        return false;
+    }
+
+    hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
+    if (FAILED(hr)) {
+        std::wcerr << L"ITaskService::Connect failed. Error code: " << hr << std::endl;
+        pService->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    ITaskFolder* pRootFolder = NULL;
+    hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
+    if (FAILED(hr)) {
+        std::wcerr << L"Cannot get Root Folder pointer. Error code: " << hr << std::endl;
+        pService->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    IRegisteredTask* pRegisteredTask = NULL;
+    hr = pRootFolder->GetTask(_bstr_t(taskName.c_str()), &pRegisteredTask);
+    if (SUCCEEDED(hr)) {
+        pRegisteredTask->Release();
+        pRootFolder->Release();
+        pService->Release();
+        CoUninitialize();
+        return true;
+    }
+
+    pRootFolder->Release();
+    pService->Release();
+    CoUninitialize();
+    return false;
+}
+
+bool CreateScheduledTask(const std::wstring& taskName, const std::wstring& executablePath, const std::wstring& arguments) {
     HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(hr)) {
         std::wcerr << L"Failed to initialize COM library. Error code: " << hr << std::endl;
@@ -180,6 +132,19 @@ bool CreateScheduledTask(const std::wstring& taskName, const std::wstring& execu
     hr = pExecAction->put_Path(_bstr_t(executablePath.c_str()));
     if (FAILED(hr)) {
         std::wcerr << L"Cannot put path to exec action. Error code: " << hr << std::endl;
+        pExecAction->Release();
+        pAction->Release();
+        pActionCollection->Release();
+        pTask->Release();
+        pRootFolder->Release();
+        pService->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    hr = pExecAction->put_Arguments(_bstr_t(arguments.c_str()));
+    if (FAILED(hr)) {
+        std::wcerr << L"Cannot put arguments to exec action. Error code: " << hr << std::endl;
         pExecAction->Release();
         pAction->Release();
         pActionCollection->Release();
@@ -356,16 +321,51 @@ bool CreateScheduledTask(const std::wstring& taskName, const std::wstring& execu
     return true;
 }
 
-int main() {
-    std::wstring taskName = L"DXVK UI Startup";
-    std::wstring executablePath = L"C:\\Path\\To\\Your\\App.exe";
-
-    if (CreateScheduledTask(taskName, executablePath)) {
-        std::wcout << L"Application added to Task Scheduler successfully." << std::endl;
-    }
-    else {
-        std::wcerr << L"Failed to add application to Task Scheduler." << std::endl;
+bool DeleteScheduledTask(const std::wstring& taskName) {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(hr)) {
+        std::wcerr << L"Failed to initialize COM library. Error code: " << hr << std::endl;
+        return false;
     }
 
-    return 0;
+    ITaskService* pService = NULL;
+    hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
+    if (FAILED(hr)) {
+        std::wcerr << L"Failed to create an instance of ITaskService. Error code: " << hr << std::endl;
+        CoUninitialize();
+        return false;
+    }
+
+    hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
+    if (FAILED(hr)) {
+        std::wcerr << L"ITaskService::Connect failed. Error code: " << hr << std::endl;
+        pService->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    ITaskFolder* pRootFolder = NULL;
+    hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
+    if (FAILED(hr)) {
+        std::wcerr << L"Cannot get Root Folder pointer. Error code: " << hr << std::endl;
+        pService->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    hr = pRootFolder->DeleteTask(_bstr_t(taskName.c_str()), 0);
+    if (FAILED(hr)) {
+        std::wcerr << L"Failed to delete the task. Error code: " << hr << std::endl;
+        pRootFolder->Release();
+        pService->Release();
+        CoUninitialize();
+        return false;
+    }
+
+    pRootFolder->Release();
+    pService->Release();
+    CoUninitialize();
+    std::wcout << L"Task successfully deleted." << std::endl;
+
+    return true;
 }

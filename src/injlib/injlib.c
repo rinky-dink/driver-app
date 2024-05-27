@@ -1286,12 +1286,13 @@ InjInject(
 		NULL);
 
 	size_t begin = 0;
-	for (size_t i = 0; i < InjectionInfo->Dlls.Length / sizeof(WCHAR); i++) {
-		if (InjDlls.Buffer[i] == L';') {
+	size_t dllsLength = InjectionInfo->Dlls.Length / sizeof(WCHAR);
+	for (size_t i = 0; i < dllsLength; i++) {
+		if (InjDlls.Buffer[i] == L',' || i == dllsLength - 1 ) {
 
 			UNICODE_STRING us;
 			RtlInitUnicodeString(&us, InjDlls.Buffer + begin);
-			us.Length = (USHORT)((i - begin) * sizeof(WCHAR));
+			us.Length = (USHORT)((i - begin + ((i == dllsLength - 1) ? 1 : 0) ) * sizeof(WCHAR));
 
 			HANDLE SectionHandle;
 			SIZE_T SectionSize = PAGE_SIZE;

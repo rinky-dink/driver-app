@@ -20,7 +20,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 
 
-HKEY reg::hKey = HKEY_LOCAL_MACHINE;
+HKEY reg::hKey = HKEY_CURRENT_USER;
 LONG reg::result = RegCreateKeyExA(reg::hKey, "Software\\Rominky Soft\\DXVK addition", 0, NULL, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, NULL, &reg::hKey, NULL);
 
 bool reg::IsStringKeyExist(LONG& result, HKEY& hKey, const char* valueName) {

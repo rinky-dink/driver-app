@@ -1,4 +1,4 @@
-#include "Header.h"
+#include "pch.h"
 
 std::mutex mtx;
 std::vector<int> taskProgress{};
@@ -66,8 +66,10 @@ std::vector<std::string> getInstalledVersions(std::vector<ReleaseInfo>& ver) {
     std::regex versionRegex(("^([^-]+)[A-z-]+(.+)$"));
 
     std::smatch match;
+    std::string install_folder{ programm_folder + "installed" };
+    std::filesystem::create_directories(std::filesystem::path(install_folder));
     DbgPrint("Found: ");
-    for (const auto& entry : fs::directory_iterator(programm_folder + "installed")) {
+    for (const auto& entry : fs::directory_iterator(install_folder)) {
         if (entry.is_directory()) {
             std::string folderName = entry.path().filename().string();
 
@@ -156,10 +158,12 @@ void Download(const size_t& taskId, ReleaseInfo& arr) {
                 DbgPrint("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
             }
             else {
-                std::string command = "C:\\Windows\\System32\\tar.exe -xkzf " + filePath.string() + " -C ./installed";
+                std::string command = "C:\\Windows\\System32\\tar.exe -xkzf " + filePath.string() + " -C " + programm_folder + "\\installed";
 
                 try {
-                    boost::process::child process(command, boost::process::std_out > boost::process::null);
+                    std::string output;
+                    boost::process::child process(command, boost::process::std_out > output);
+                    DbgPrint("output: %s", command.c_str());
                     process.wait();
 
                     int exitCode = process.exit_code();
@@ -461,10 +465,13 @@ bool gettestsigning() {
 
     char buffer[128];
     DWORD bytesRead;
-    std::string result = "";
+    bool status{ false };
     while (ReadFile(hStdOutRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
         buffer[bytesRead] = '\0';
-        result += buffer;
+        if (strstr(buffer, "testsigning") && strstr(buffer, "Yes")) {
+            status = true;
+            break;
+        }
     }
 
     CloseHandle(hStdOutRead);
@@ -474,7 +481,32 @@ bool gettestsigning() {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    return (result.find("testsigning") != std::string::npos && result.find("Yes") != std::string::npos);
+    
+    return status;
+}
+
+void settestsinging(bool status)
+{
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags |= STARTF_USESTDHANDLES;
+
+    ZeroMemory(&pi, sizeof(pi));
+
+    std::string cmd = "cmd.exe /C bcdedit /set testsigning " + std::string(status ? "on" : "off");
+
+    if (!CreateProcessA(NULL, const_cast<char*>(cmd.c_str()), NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        std::cerr << "Ошибка при создании процесса." << std::endl;
+        return ;
+    }
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 }
 
 bool customSort(const DllPath& a, const DllPath& b) {
@@ -498,6 +530,10 @@ bool customSort(const DllPath& a, const DllPath& b) {
         return a.dll < b.dll;
     }
 }
+
+
+
+
 //void LoadFontFromResource(ImFont*& font)
 //{
 //    HRSRC hResource = FindResource(nullptr, MAKEINTRESOURCE(101), RT_FONT);

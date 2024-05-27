@@ -1,4 +1,4 @@
-#include "Header.h"
+#include "pch.h"
 
 void ComboListVer(std::vector<ReleaseInfo>& ver,const bool& theard_status, std::string name, size_t from, size_t to, FlagsState flag)
 {
@@ -34,94 +34,120 @@ void ComboListVer(std::vector<ReleaseInfo>& ver,const bool& theard_status, std::
             bool ShowOnlyInstalled = HasFlag(Flag_ShowOnlyInstalled, flag);
             bool ModifyWindow = HasFlag(Flag_ModifyWindow, flag);
 
-            for (int i = from; i < to; ++i) {
 
-
-                if (((Flag_ShowOnlyInstalled & flag) != 0) && ver[i].flag != installed)
-                    continue;
-
-                ImVec4 activeButtonColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
-                ImGui::PushStyleColor(ImGuiCol_Header, &ver[i].pending ? activeButtonColor : ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.51f, 0.51f, 0.51f, 1.00f));
-                ImGui::PushStyleColor(ImGuiCol_HeaderActive, activeButtonColor);
-
-                ImVec4 textcolor;
-
-                if (ver[i].flag == none)
-                    textcolor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-                else if (ver[i].flag == installed)
-                    textcolor = ImVec4(50.0f / 255.0f, 205.0f / 255.0f, 50.0f / 255.0f, 1.0f);
-                else if (ver[i].flag == error)
-                    textcolor = ImVec4(235.0f / 255.0f, 68.0f / 255.0f, 56.0f / 255.0f, 1.0f);
-
-                ImGui::PushStyleColor(ImGuiCol_Text, textcolor);
-
-
-
-                bool selected = ModifyWindow && ver[i].pending && ver[i].flag == installed;
-
-                std::string formated = ((selected) ? (ver[i].typebin == DXVK ? "DXVK: " : ver[i].typebin == VKD3D ? "VKD3D: " : "UNKNOWN") : "") + ver[i].version /*+ ( ver[i].flag == installed? "(Установлено)" : "")*/;
-
-
-                if (ModifyWindow ? selected : true)
+            bool installedversions{ false };
+            if (ShowOnlyInstalled)
+                for (auto i : ver)
                 {
-
-                    if (ModifyWindow && ver[i].modify == modify_types::reinstall)
+                    if (i.flag == installed)
                     {
-                        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.17f, 0.27f, 0.7f, 0.9f));
-                        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.22f, 0.32f, 0.7f, 0.9f));
-                        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.1f, 0.2f, 0.7f, 0.9f));
+                        installedversions = true;
+                        break;
                     }
-                    else if (ModifyWindow && ver[i].modify == modify_types::del)
-                    {
-                        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.7f, 0.17f, 0.17f, 0.9f));
-                        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.7f, 0.22f, 0.22f, 0.9f));
-                        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.7f, 0.1f, 0.1f, 0.9f));
-                    }
-
-                    if (ImGui::Selectable(formated.c_str(), &ver[i].pending, ((Flag_None & flag) != 0) ? ImGuiSelectableFlags_AllowDoubleClick : 0)) {
-
-                        //if (!ModifyWindow && ImGui::IsMouseDoubleClicked(0))
-                        //{
-                        //    std::cout << "double click\n";
-                        //    for (auto& x : ver)
-                        //    {
-                        //        x.pending = false;
-                        //    }
-                        //    ver[i].pending = !ver[i].pending;
-                        //    folderPath = ver[i].getfoldername();
-                        //    ChangeDllPath = true;
-  
-                        //}
-
-                        if (ModifyWindow)
-                        {
-                            ver[i].pending = true;
-                            ++ver[i].modify;
-                        }
-                        else if (ShowOnlyInstalled)
-                        {
-                            for (auto& x : ver)
-                            {
-                                x.pending = false;
-                            }
-                            ver[i].pending = true;
-                            folderPath = ver[i].getfoldername();
-                            ChangeDllPath = true;
-                        }
-
-                    }
-                    if (ModifyWindow && (ver[i].modify == modify_types::reinstall || ver[i].modify == modify_types::del))
-                    {
-                        ImGui::PopStyleColor(3); // Подразумевается, что вы пушите три цветовых стиля
-                    }
-
-
-                    //if (deinmodify)
-                    //    ImGui::PopStyleColor();
-
                 }
-                ImGui::PopStyleColor(4);
+        
+            if (!installedversions && ShowOnlyInstalled)
+            {
+                ImVec2 contentSize = ImGui::GetContentRegionAvail();
+                ImVec2 buttonSize(200, 75);
+                ImVec2 buttonPosition((contentSize.x - buttonSize.x) * 0.5f, (contentSize.y - buttonSize.y) * 0.5f);
+
+                ImGui::SetCursorPos(buttonPosition);
+                if (ImGui::Button("Открыть менджер версий", buttonSize))
+                {
+                    ver_manager = !ver_manager;
+                }
+            }
+            else
+            {
+                for (int i = from; i < to; ++i) {
+
+                    if (((Flag_ShowOnlyInstalled & flag) != 0) && ver[i].flag != installed)
+                        continue;
+
+                    ImVec4 activeButtonColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
+                    ImGui::PushStyleColor(ImGuiCol_Header, &ver[i].pending ? activeButtonColor : ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+                    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.51f, 0.51f, 0.51f, 1.00f));
+                    ImGui::PushStyleColor(ImGuiCol_HeaderActive, activeButtonColor);
+
+                    ImVec4 textcolor;
+
+                    if (ver[i].flag == none)
+                        textcolor = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+                    else if (ver[i].flag == installed)
+                        textcolor = ImVec4(50.0f / 255.0f, 205.0f / 255.0f, 50.0f / 255.0f, 1.0f);
+                    else if (ver[i].flag == error)
+                        textcolor = ImVec4(235.0f / 255.0f, 68.0f / 255.0f, 56.0f / 255.0f, 1.0f);
+
+                    ImGui::PushStyleColor(ImGuiCol_Text, textcolor);
+
+
+
+                    bool selected = ModifyWindow && ver[i].pending && ver[i].flag == installed;
+
+                    std::string formated = ((selected) ? (ver[i].typebin == DXVK ? "DXVK: " : ver[i].typebin == VKD3D ? "VKD3D: " : "UNKNOWN") : "") + ver[i].version /*+ ( ver[i].flag == installed? "(Установлено)" : "")*/;
+
+
+                    if (ModifyWindow ? selected : true)
+                    {
+
+                        if (ModifyWindow && ver[i].modify == modify_types::reinstall)
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.17f, 0.27f, 0.7f, 0.9f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.22f, 0.32f, 0.7f, 0.9f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.1f, 0.2f, 0.7f, 0.9f));
+                        }
+                        else if (ModifyWindow && ver[i].modify == modify_types::del)
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.7f, 0.17f, 0.17f, 0.9f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.7f, 0.22f, 0.22f, 0.9f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.7f, 0.1f, 0.1f, 0.9f));
+                        }
+
+                        if (ImGui::Selectable(formated.c_str(), &ver[i].pending, ((Flag_None & flag) != 0) ? ImGuiSelectableFlags_AllowDoubleClick : 0)) {
+
+                            //if (!ModifyWindow && ImGui::IsMouseDoubleClicked(0))
+                            //{
+                            //    std::cout << "double click\n";
+                            //    for (auto& x : ver)
+                            //    {
+                            //        x.pending = false;
+                            //    }
+                            //    ver[i].pending = !ver[i].pending;
+                            //    folderPath = ver[i].getfoldername();
+                            //    ChangeDllPath = true;
+
+                            //}
+
+                            if (ModifyWindow)
+                            {
+                                ver[i].pending = true;
+                                ++ver[i].modify;
+                            }
+                            else if (ShowOnlyInstalled)
+                            {
+                                for (auto& x : ver)
+                                {
+                                    x.pending = false;
+                                }
+                                ver[i].pending = true;
+                                dGame.dlls_FolderPath = ver[i].getfoldername();
+                                ChangeDllPath = true;
+                            }
+
+                        }
+                        if (ModifyWindow && (ver[i].modify == modify_types::reinstall || ver[i].modify == modify_types::del))
+                        {
+                            ImGui::PopStyleColor(3); // Подразумевается, что вы пушите три цветовых стиля
+                        }
+
+
+                        //if (deinmodify)
+                        //    ImGui::PopStyleColor();
+
+                    }
+                    ImGui::PopStyleColor(4);
+                }
             }
         }
         ImGui::EndListBox();
