@@ -1,7 +1,8 @@
 #pragma once
+
 #include <ntddk.h>
-#include "../injlib/injlib.h"
-#include "common.h"
+#include <ntstrsafe.h>
+#include "ioctl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,11 +86,7 @@ typedef struct _INJ_SETTINGS
     INJ_METHOD Method;
 } INJ_SETTINGS, * PINJ_SETTINGS;
 
-typedef struct _sMSG {
-    WCHAR Path[256];
-    WCHAR DLLs[256];
-} sMSG;
-typedef struct _sMSG* PsMSG;
+
 
 typedef struct _INJ_INJECTION_INFO
 {
@@ -166,13 +163,15 @@ InjDestroy(
   VOID
   );
 
+
 NTSTATUS
 NTAPI
 InjCreateInjectionInfo(
-  _In_opt_ PINJ_INJECTION_INFO* InjectionInfo,
-  _In_ HANDLE ProcessId,
-  _In_opt_ PCUNICODE_STRING CommandLine
-  );
+    _In_opt_ PINJ_INJECTION_INFO* InjectionInfo,
+    _In_ HANDLE ProcessId,
+    _In_opt_ PCUNICODE_STRING CommandLine,
+    _In_opt_ PCUNICODE_STRING ImageFileName
+);
 
 VOID
 NTAPI
@@ -209,6 +208,13 @@ InjInject(
 //////////////////////////////////////////////////////////////////////////
 // Notify routines.
 //////////////////////////////////////////////////////////////////////////
+NTSTATUS ReadDxvkConfigFile(
+    _Inout_ PBOOLEAN isDxvkConfigPresent,
+    _In_ PUNICODE_STRING FilePath,
+    _Inout_ PUNICODE_STRING Path,
+    _Inout_ PUNICODE_STRING Dlls
+);
+
 
 VOID
 NTAPI

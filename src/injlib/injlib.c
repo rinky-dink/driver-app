@@ -844,7 +844,7 @@ InjUpdateSettings(
 		UNICODE_STRING DIR_X64;
 		UNICODE_STRING DIR_X86;
 
-		Dlls.Buffer = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, (wcslen(RecivedData->DLLs) + 1) * sizeof(WCHAR), 'DIR');
+		Dlls.Buffer = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, (wcslen(RecivedData->Dlls) + 1) * sizeof(WCHAR), 'DIR');
 		DIR_X64.Buffer = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, (wcslen(RecivedData->Path) + wcslen(L"\\x64") + 1) * sizeof(WCHAR), 'DIR'); 
 		DIR_X86.Buffer = (WCHAR*)ExAllocatePool2(POOL_FLAG_NON_PAGED, (wcslen(RecivedData->Path) + wcslen(L"\\x32") + 1) * sizeof(WCHAR), 'DIR'); 
 
@@ -860,7 +860,7 @@ InjUpdateSettings(
 		}
 			
 		{
-			wcscpy_s(Dlls.Buffer, wcslen(RecivedData->DLLs) + 1, RecivedData->DLLs);
+			wcscpy_s(Dlls.Buffer, wcslen(RecivedData->Dlls) + 1, RecivedData->Dlls);
 			Dlls.Length = wcslen(Dlls.Buffer) * sizeof(WCHAR);
 			Dlls.MaximumLength = Dlls.Length + sizeof(WCHAR);
 
@@ -1031,21 +1031,85 @@ NTAPI
 InjCreateInjectionInfo(
 	_In_opt_ PINJ_INJECTION_INFO* InjectionInfo,
 	_In_ HANDLE ProcessId,
-	_In_opt_ PCUNICODE_STRING CommandLine
+	_In_opt_ PCUNICODE_STRING CommandLine,
+	_In_opt_ PCUNICODE_STRING ImageFileName
 )
 {
+	BOOLEAN containsSubstring = ContainsSubstring(CommandLine, L"-dxvk");
+	BOOLEAN isDxvkConfigPresent = FALSE;
+	if (!containsSubstring)
+	{
+		PUNICODE_STRING exePath = ImageFileName;
+		WCHAR confPathBuffer[512];
+		UNICODE_STRING confPath;
+
+		RtlCopyMemory(confPathBuffer, exePath->Buffer, exePath->Length);
+		confPathBuffer[exePath->Length / sizeof(WCHAR)] = L'\0';
+		WCHAR* lastSlash = wcsrchr(confPathBuffer, L'\\');
+		if (lastSlash)
+		{
+			wcscpy(lastSlash + 1, L"dxvk.conf");
+		}
+		RtlInitUnicodeString(&confPath, confPathBuffer);
+
+		UNICODE_STRING Path;
+		UNICODE_STRING Dlls;
+		RtlInitUnicodeString(&Path, NULL);
+		RtlInitUnicodeString(&Dlls, NULL);
+
+		NTSTATUS status = ReadDxvkConfigFile(&isDxvkConfigPresent, &confPath, &Path, &Dlls);
+
+		if (NT_SUCCESS(status))
+		{
+			ULONG Flags = RTL_DUPLICATE_UNICODE_STRING_NULL_TERMINATE | RTL_DUPLICATE_UNICODE_STRING_ALLOCATE_NULL_STRING;
+
+			UNICODE_STRING PathX64, PathX86;
+			WCHAR PathX64Buffer[512], PathX86Buffer[512];
+
+			// Формируем строку для PathX64
+			wcsncpy(PathX64Buffer, Path.Buffer, Path.Length / sizeof(WCHAR));
+			PathX64Buffer[Path.Length / sizeof(WCHAR)] = L'\0'; // Null-terminate the string
+			wcscat(PathX64Buffer, L"\\x64");
+			RtlInitUnicodeString(&PathX64, PathX64Buffer);
+
+			// Формируем строку для PathX86
+			wcsncpy(PathX86Buffer, Path.Buffer, Path.Length / sizeof(WCHAR));
+			PathX86Buffer[Path.Length / sizeof(WCHAR)] = L'\0'; // Null-terminate the string
+			wcscat(PathX86Buffer, L"\\x32");
+			RtlInitUnicodeString(&PathX86, PathX86Buffer);
+
+			NTSTATUS statusX64 = RtlDuplicateUnicodeString(Flags, &PathX64, &InjPath[InjArchitectureX64]);
+			NTSTATUS statusX86 = RtlDuplicateUnicodeString(Flags, &PathX86, &InjPath[InjArchitectureX86]);
+			NTSTATUS statusDlls = RtlDuplicateUnicodeString(Flags, &Dlls, &InjDlls);
+
+			if (!NT_SUCCESS(statusX64) || !NT_SUCCESS(statusX86) || !NT_SUCCESS(statusDlls))
+			{
+				InjDbgPrint("Failed to duplicate unicode strings for injection paths or DLLs\n");
+				return status;
+			}
+
+			InjDbgPrint("\tInjPath[InjArchitectureX64]: %wZ\n", &InjPath[InjArchitectureX64]);
+			InjDbgPrint("\tInjPath[InjArchitectureX86]: %wZ\n", &InjPath[InjArchitectureX86]);
+			InjDbgPrint("\tInjDlls: %wZ\n", &InjDlls);
+
+		}
+		else
+		{
+			InjDbgPrint("\tReadDxvkConfigFile failed with status: 0x%08X\n", status);
+			return STATUS_SUCCESS;
+		}
+	}
+	
 	for (ULONG Architecture = 0; Architecture < InjArchitectureMax; Architecture++)
 	{
 		if (InjPath[Architecture].Length == 0)
 		{
-			InjDbgPrint("NULL \t %wZ", CommandLine);
 			return STATUS_SUCCESS;
 		}
 	}
 
 	if (InjDlls.Length == 0)
 	{
-		InjDbgPrint("NULL \t %wZ", CommandLine);
 		return STATUS_SUCCESS;
 	}
 
@@ -1058,11 +1122,11 @@ InjCreateInjectionInfo(
 		// Теперь у вас есть доступ к данным в структуре INJ_INJECTION_INFO через переменную injectionInfo
 
 		// Например, вы можете вывести ProcessId
-		DbgPrint("ProcessId: %lu\n", (ULONG)injectionInfo->ProcessId);
-		DbgPrint("injectionInfo->Settings->Dlls: %wZ\n", injectionInfo->Dlls);
+		InjDbgPrint("ProcessId: %lu\n", (ULONG)injectionInfo->ProcessId);
+		InjDbgPrint("injectionInfo->Settings->Dlls: %wZ\n", injectionInfo->Dlls);
 		for (size_t i = 0; i < InjArchitectureMax; i++)
 		{
-			DbgPrint("injectionInfo->Settings->Path[i]: %wZ\n", injectionInfo->Path[i]);
+			InjDbgPrint("injectionInfo->Settings->Path[i]: %wZ\n", injectionInfo->Path[i]);
 		}
 		
 		if (PsGetProcessId(IoGetCurrentProcess()) == injectionInfo->ProcessId) {
@@ -1074,16 +1138,18 @@ InjCreateInjectionInfo(
 
 		// Здесь можно добавить нужную вам обработку
 	}
-	BOOLEAN containsSubstring = ContainsSubstring(CommandLine, L"-dxvk");
+	
 
 
-	//DbgPrint("ProcessId: %lu \t %wZ \tParent PID: %lu\n", (ULONG)ProcessId, CommandLine, (ULONG)parentPid);
+	//InjDbgPrint("ProcessId: %lu \t %wZ \tParent PID: %lu\n", (ULONG)ProcessId, CommandLine, (ULONG)parentPid);
 
 	if (child_process)
 		InjDbgPrint("[injlib]: Child process parent: %lu", (ULONG)PsGetProcessId(IoGetCurrentProcess()));
 	else if (containsSubstring)
 		InjDbgPrint("[injlib]: Command line contains '-dxvk': %s\n", containsSubstring ? "TRUE" : "FALSE");
-	else
+	else if(isDxvkConfigPresent)
+		InjDbgPrint("[injlib]: isDxvkConfigPresent\n");
+	else 
 		return STATUS_SUCCESS;
 	/*else if(parentPid == )
 	else*/
@@ -1370,6 +1436,214 @@ InjInject(
 // Notify routines.
 //////////////////////////////////////////////////////////////////////////
 
+NTSTATUS ReadDxvkConfigFile(
+	_Inout_ PBOOLEAN isDxvkConfigPresent,
+	_In_ PUNICODE_STRING FilePath,
+	_Inout_ PUNICODE_STRING Path,
+	_Inout_ PUNICODE_STRING Dlls
+)
+{
+	NTSTATUS status;
+	HANDLE fileHandle;
+	OBJECT_ATTRIBUTES objectAttributes;
+	IO_STATUS_BLOCK ioStatusBlock;
+
+	InjDbgPrint("ReadDxvkConfigFile: Opening file: %wZ\n", FilePath);
+
+	InitializeObjectAttributes(&objectAttributes, FilePath, OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, NULL);
+
+	status = ZwCreateFile(&fileHandle, GENERIC_READ, &objectAttributes, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ, FILE_OPEN, FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+
+	if (!NT_SUCCESS(status))
+	{
+		InjDbgPrint("Failed to open file: %wZ, status: 0x%08X\n", FilePath, status);
+		*isDxvkConfigPresent = FALSE;
+		return status;
+	}
+	
+	InjDbgPrint("File opened successfully: %wZ\n", FilePath);
+
+	CHAR buffer[256];
+	CHAR line[256];
+	ULONG bytesRead;
+	ULONG bufferOffset = 0;
+	BOOLEAN endOfFile = FALSE;
+	BOOLEAN foundPath = FALSE;
+	BOOLEAN foundDlls = FALSE;
+
+	while (!endOfFile)
+	{
+		RtlZeroMemory(buffer, sizeof(buffer));
+		status = ZwReadFile(fileHandle, NULL, NULL, NULL, &ioStatusBlock, buffer, sizeof(buffer) - 1, NULL, NULL);
+
+		if (NT_SUCCESS(status) || status == STATUS_END_OF_FILE)
+		{
+			if (status == STATUS_END_OF_FILE)
+			{
+				endOfFile = TRUE;
+			}
+
+			buffer[ioStatusBlock.Information] = '\0'; // Null terminate the string
+			bytesRead = (ULONG)ioStatusBlock.Information;
+
+			for (ULONG i = 0; i < bytesRead; i++)
+			{
+				if (buffer[i] == '\n' || buffer[i] == '\r' || buffer[i] == '\0')
+				{
+					if (bufferOffset > 0)
+					{
+						line[bufferOffset] = '\0';
+
+						if (!foundPath && strstr(line, "dxvk.dlls.FolderPath = ") == line)
+						{
+							CHAR* value = line + strlen("dxvk.dlls.FolderPath = ") + 1; // Skip the starting quote
+							value[strlen(value) - 1] = '\0'; // Remove the ending quote
+							InjDbgPrint("Raw FolderPath: %s\n", value);
+
+							ANSI_STRING ansiString;
+							UNICODE_STRING unicodeString;
+							RtlInitAnsiString(&ansiString, value);
+
+							status = RtlAnsiStringToUnicodeString(&unicodeString, &ansiString, TRUE);
+							if (NT_SUCCESS(status))
+							{
+								InjDbgPrint("Converted FolderPath: %wZ\n", &unicodeString);
+
+								Path->Buffer = (PWCHAR)ExAllocatePoolWithTag(NonPagedPool, unicodeString.MaximumLength, 'path');
+								if (Path->Buffer)
+								{
+									RtlCopyMemory(Path->Buffer, unicodeString.Buffer, unicodeString.Length);
+									Path->Length = unicodeString.Length;
+									Path->MaximumLength = unicodeString.MaximumLength;
+									InjDbgPrint("Parsed FolderPath: %wZ\n", Path);
+									foundPath = TRUE;
+								}
+								else
+								{
+									InjDbgPrint("Failed to allocate memory for FolderPath\n");
+									status = STATUS_INSUFFICIENT_RESOURCES;
+									RtlFreeUnicodeString(&unicodeString);
+									ZwClose(fileHandle);
+									return status;
+								}
+								RtlFreeUnicodeString(&unicodeString);
+							}
+							else
+							{
+								InjDbgPrint("Failed to convert FolderPath: %s, status: 0x%08X\n", ansiString.Buffer, status);
+								ZwClose(fileHandle);
+								return status;
+							}
+						}
+						else if (!foundDlls && strstr(line, "dxvk.dlls = ") == line)
+						{
+							CHAR* value = line + strlen("dxvk.dlls = ");
+							InjDbgPrint("Raw DLLs: %s\n", value);
+
+							ANSI_STRING ansiString;
+							UNICODE_STRING unicodeString;
+							RtlInitAnsiString(&ansiString, value);
+
+							status = RtlAnsiStringToUnicodeString(&unicodeString, &ansiString, TRUE);
+							if (NT_SUCCESS(status))
+							{
+								InjDbgPrint("Converted DLLs: %wZ\n", &unicodeString);
+
+								Dlls->Buffer = (PWCHAR)ExAllocatePoolWithTag(NonPagedPool, unicodeString.MaximumLength, 'dlls');
+								if (Dlls->Buffer)
+								{
+									RtlCopyMemory(Dlls->Buffer, unicodeString.Buffer, unicodeString.Length);
+									Dlls->Length = unicodeString.Length;
+									Dlls->MaximumLength = unicodeString.MaximumLength;
+									InjDbgPrint("Parsed DLLs: %wZ\n", Dlls);
+									foundDlls = TRUE;
+								}
+								else
+								{
+									InjDbgPrint("Failed to allocate memory for DLLs\n");
+									status = STATUS_INSUFFICIENT_RESOURCES;
+									RtlFreeUnicodeString(&unicodeString);
+									ZwClose(fileHandle);
+									return status;
+								}
+								RtlFreeUnicodeString(&unicodeString);
+							}
+							else
+							{
+								InjDbgPrint("Failed to convert DLLs: %s, status: 0x%08X\n", ansiString.Buffer, status);
+								ZwClose(fileHandle);
+								return status;
+							}
+						}
+
+						bufferOffset = 0;
+
+						// Если обе строки найдены, выходим из внутреннего цикла
+						if (foundPath && foundDlls)
+						{
+							break;
+						}
+					}
+				}
+				else
+				{
+					if (bufferOffset < sizeof(line) - 1)
+					{
+						line[bufferOffset++] = buffer[i];
+					}
+				}
+			}
+
+			// Если обе строки найдены, выходим из внешнего цикла
+			if (foundPath && foundDlls)
+			{
+				break;
+			}
+		}
+		else
+		{
+			InjDbgPrint("Failed to read file: %wZ, status: 0x%08X\n", FilePath, status);
+			break;
+		}
+	}
+
+	ZwClose(fileHandle);
+	InjDbgPrint("File closed: %wZ\n", FilePath);
+
+	if (foundPath && foundDlls)
+	{
+		*isDxvkConfigPresent = TRUE;
+		return STATUS_SUCCESS;
+	}
+
+	return STATUS_UNSUCCESSFUL;
+}
+
+//BOOLEAN OpenDxvkConfigFileIfExists(
+//	_Inout_ PHANDLE fileHandle,
+//	_In_ PUNICODE_STRING FilePath
+//)
+//{
+//	OBJECT_ATTRIBUTES objectAttributes;
+//	IO_STATUS_BLOCK ioStatusBlock;
+//
+//	InitializeObjectAttributes(&objectAttributes, FilePath, OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, NULL);
+//
+//	// Пытаемся открыть файл
+//	NTSTATUS status = ZwCreateFile(fileHandle, GENERIC_READ, &objectAttributes, &ioStatusBlock, NULL, FILE_ATTRIBUTE_NORMAL,
+//		FILE_SHARE_READ, FILE_OPEN, FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+//
+//	if (NT_SUCCESS(status))
+//	{
+//		return TRUE;
+//	}
+//	else
+//	{
+//		return FALSE;
+//	}
+//}
+
 VOID
 NTAPI
 InjCreateProcessNotifyRoutineEx(
@@ -1383,7 +1657,7 @@ InjCreateProcessNotifyRoutineEx(
 
 	if (CreateInfo)
 	{
-		InjCreateInjectionInfo(NULL, ProcessId, CreateInfo->CommandLine);
+		InjCreateInjectionInfo(NULL, ProcessId, CreateInfo->CommandLine, CreateInfo->ImageFileName);
 	}
 	else
 	{
